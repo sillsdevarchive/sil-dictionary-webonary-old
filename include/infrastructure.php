@@ -17,13 +17,13 @@ if ( ! defined('ABSPATH') )
 	die( '-1' );
 
 //---------------------------------------------------------------------------//
-	
+
 /**
 * Set up the SIL Dictionary in WordPress Dashboard Tools
  */
 function add_admin_menu() {
 	add_menu_page( "Webonary", "Webonary", true, "webonary", "sil_dictionary_main",  get_bloginfo('wpurl') . "/wp-content/plugins/sil-dictionary-webonary/images/webonary-icon.png", 76 );
-	
+
     add_management_page(
 		__( 'SIL Dictionary', 'sil_old_menu' ), // page title
         __( 'SIL Dictionary', 'sil_old_menu' ), // menu title
@@ -35,14 +35,14 @@ function add_admin_menu() {
 function ajaxlanguage()
 {
 	global $wpdb;
-	
+
 	$sql = "SELECT name
 		FROM $wpdb->terms
 		WHERE slug = '" . $_POST['languagecode'] . "'";
-		
-	$languagename = $wpdb->get_var( $sql);	
-	
-		
+
+	$languagename = $wpdb->get_var( $sql);
+
+
 	echo $languagename;
 	die();
 }
@@ -57,8 +57,8 @@ function get_category_id() {
 	$sql = "SELECT term_id
 		FROM $wpdb->terms
 		WHERE name LIKE 'webonary'";
-		
-	$catid = $wpdb->get_var( $sql);	
+
+	$catid = $wpdb->get_var( $sql);
 
 	return $catid;
 }
@@ -71,7 +71,7 @@ function get_LanguageCodes() {
 		LEFT JOIN " . $wpdb->terms . " ON " . $wpdb->terms . ".slug = " . $wpdb->prefix . "sil_search.language_code
 		GROUP BY language_code
 		ORDER BY language_code";
-	
+
 	return $wpdb->get_results($sql);;
 }
 
@@ -91,9 +91,9 @@ function sil_old_menu() {
  * User input for the plugin.
  */
 function user_input() {
-	
+
 	$arrLanguageCodes = get_LanguageCodes();
-	
+
 	// enctype="multipart/form-data"
 	?>
 	<script>
@@ -101,19 +101,19 @@ function user_input() {
 	{
 		var e = document.getElementById(selectbox);
 		var langcode = e.options[e.selectedIndex].value;
-			
+
 		jQuery.ajax({
-     		url: '<?php echo admin_url('admin-ajax.php'); ?>',
-     		data : {action: "getAjaxlanguage", languagecode : langcode}, 	
-     		type:'POST',
+			url: '<?php echo admin_url('admin-ajax.php'); ?>',
+			data : {action: "getAjaxlanguage", languagecode : langcode},
+			type:'POST',
      		dataType: 'html',
      		success: function(output_string){
         		jQuery('#' + langname).val(output_string);
-     		}     		
+		}
 	 })
-	}	
+	}
 	</script>
-	
+
 	<div class="wrap">
 		<div id="icon-tools" class="icon32"></div>
 		<form method="post" action="">
@@ -139,11 +139,11 @@ function user_input() {
 						<input name="delete_allposts" type="checkbox" id="delete_allposts" value="1"
 							<?php checked('1', get_option('delete_allposts')); ?> />
 						<?php _e('Delete all posts, including the ones not in category "webonary" (legacy function)') */ ?>
-					</label>					 
+					</label>
 					<label for="delete_pages">
 						<!--<input name="delete_pages" type="checkbox" id="delete_pages" value="1"
 							<?php checked('1', get_option('delete_pages')); ?> />-->
-					</label><br />					 
+					</label><br />
 					<?php _e('Are you sure you want to delete the dictionary data?', 'sil_dictionary'); ?>
 					<input type="submit" name="delete_data" value="<?php _e('Delete', 'sil_dictionary'); ?>">
 					<br>
@@ -169,22 +169,22 @@ function user_input() {
 							<?php _e('Always include searching through partial words.'); ?>
 				<p>
 				<h3>Browse Views</h3>
-				<?php 
+				<?php
 				if(count($arrLanguageCodes) == 0)
 				{
 				?>
 					<span style="color:red">You need to first import your xhtml file before you can select a language code.</span>
 					<p>
 				<?php
-				} 
+				}
 				_e('Vernacular Language Code:'); ?>
 				<select id=vernacularLanguagecode name="languagecode" onchange="getLanguageName('vernacularLanguagecode', 'vernacularName');">
 					<option value=""></option>
-					<?php 
+					<?php
 					$x = 0;
 					foreach($arrLanguageCodes as $languagecode) {?>
 						<option value="<?php echo $languagecode->language_code; ?>" <?php if(get_option('languagecode') == $languagecode->language_code) { $i = $x; ?>selected<?php }?>><?php echo $languagecode->language_code; ?></option>
-					<?php 
+					<?php
 					$x++;
 					} ?>
 				</select>
@@ -193,7 +193,7 @@ function user_input() {
 				<?php _e('Vernacular Alphabet:'); ?>
 				<input name="vernacular_alphabet" type="text" size=50 value="<?php echo stripslashes(get_option('vernacular_alphabet')); ?>" />
 				<?php _e('(Letters seperated by comma)'); ?>
-				<p>			
+				<p>
 				<b><?php _e('Reversal Indexes:'); ?></b>
 				<p>
 				<?php _e('Main reversal index code:'); ?>
@@ -204,12 +204,12 @@ function user_input() {
 						foreach($arrLanguageCodes as $languagecode) {?>
 						<option value="<?php echo $languagecode->language_code; ?>" <?php if(get_option('reversal1_langcode') == $languagecode->language_code) { $k = $x; ?>selected<?php }?>><?php echo $languagecode->language_code; ?></option>
 					<?php
-						$x++; 
+						$x++;
 						} ?>
 				</select>
 				<?php _e('Language Name:'); ?> <input id=reversalName type="text" name="txtReversalName" value="<?php echo $arrLanguageCodes[$k]->name; ?>">
 				<p>
-				<?php 
+				<?php
 				if(strlen(trim(stripslashes(get_option('reversal1_alphabet')))) == 0)
 				{
 					$reversal1alphabet = "";
@@ -223,7 +223,7 @@ function user_input() {
 							$reversal1alphabet .= ",";
 						}
 						$i++;
-					} 
+					}
 				}
 				else
 				{
@@ -240,10 +240,10 @@ function user_input() {
 				<select id=reversal2Langcode name="reversal2_langcode" onchange="getLanguageName('reversal2Langcode', 'reversal2Name');">
 					<option value=""></option>
 					<?php
-					$x = 0; 
+					$x = 0;
 					foreach($arrLanguageCodes as $languagecode) {?>
 						<option value="<?php echo $languagecode->language_code; ?>" <?php if(get_option('reversal2_langcode') == $languagecode->language_code) { $n = $x; ?>selected<?php }?>><?php echo $languagecode->language_code; ?></option>
-					<?php 
+					<?php
 					$x++;
 					} ?>
 				</select>
@@ -255,7 +255,7 @@ function user_input() {
 				<p>
 				<input type="submit" name="save_settings" value="<?php _e('Save', 'sil_dictionary'); ?>">
 				</p>
-				<?php 
+				<?php
 				/*
 				?>
 				<h3><?php _e('Comments');?></h3>
@@ -277,9 +277,9 @@ function user_input() {
 				</p>
 				<?php
 			}
-			
+
 		?>
-		</form>		
+		</form>
 	</div>
 	<?php
 }
@@ -291,7 +291,7 @@ function user_input() {
  */
 function run_user_action() {
 	global $wpdb;
-	
+
     if ( ! empty( $_POST['delete_data'])) {
         clean_out_dictionary_data();
     }
@@ -304,42 +304,42 @@ function run_user_action() {
     	update_option("reversal1_alphabet", $_POST['reversal1_alphabet']);
     	update_option("reversal2_alphabet", $_POST['reversal2_alphabet']);
     	update_option("reversal2_langcode", $_POST['reversal2_langcode']);
-    	
+
     	if(trim(strlen($_POST['txtVernacularName'])) == 0)
     	{
     		echo "<br><span style=\"color:red\">Please fill out the textfields for the language names, as they will appear in a dropdown below the searcbhox.</span><br>";
     	}
-    	
+
     	$arrLanguages[0]['name'] = "txtVernacularName";
     	$arrLanguages[0]['code'] = "languagecode";
     	$arrLanguages[1]['name'] = "txtReversalName";
     	$arrLanguages[1]['code'] = "reversal_langcode";
     	$arrLanguages[2]['name'] = "txtReversal2Name";
     	$arrLanguages[2]['code'] = "reversal2_langcode";
-    	
+
     	foreach($arrLanguages as $language)
     	{
     		if(strlen(trim($_POST[$language['code']])) != 0)
     		{
 		    	$sql = "INSERT INTO  $wpdb->terms (name,slug) VALUES ('" . $_POST[$language['name']] . "','" . $_POST[$language['code']] . "')
 		  		ON DUPLICATE KEY UPDATE name = '" . $_POST[$language['name']]  . "'";
-		    	
+
 		    	$wpdb->query( $sql );
-		    	
+
 		    	$lastid = $wpdb->insert_id;
-		    	
+
 		    	if($lastid != 0)
 		    	{
 			    	$sql = "INSERT INTO  $wpdb->term_taxonomy (term_id, taxonomy,description,count) VALUES (" . $lastid . ", 'sil_writing_systems', '" . $_POST[$language['name']] . "',999999)
 			  		ON DUPLICATE KEY UPDATE description = '" . $_POST[$language['name']]  . "'";
-		    	    	
+
 		    		$wpdb->query( $sql );
 		    	}
     		}
-    	}    	
-    	
+	}
+
     	echo "<br>" . _e('Settings saved');
-    }    
+    }
 }
 
 //---------------------------------------------------------------------------//
@@ -355,21 +355,21 @@ function install_sil_dictionary_infrastructure() {
 	register_semantic_domains_taxonomy();
 	register_part_of_speech_taxonomy();
 	register_language_taxonomy();
-	register_webstrings_taxonomy();	
+	register_webstrings_taxonomy();
 }
 
 //---------------------------------------------------------------------------//
 
 function create_search_tables () {
 	global $wpdb;
-	
+
 	$table = SEARCHTABLE;
 	$sql = "CREATE TABLE IF NOT EXISTS " . $table . " (
 		`post_id` bigint(20) NOT NULL,
 		`language_code` varchar(20) NOT NULL,
 		`relevance` tinyint,
-		`search_strings` longtext CHARACTER SET utf8 COLLATE utf8_general_ci, 
-		`subid` INT NOT NULL DEFAULT  '0', 
+		`search_strings` longtext CHARACTER SET utf8 COLLATE utf8_general_ci,
+		`subid` INT NOT NULL DEFAULT  '0',
 		`sortorder` INT NOT NULL DEFAULT '0', ";
 		$sql .= " PRIMARY KEY (`post_id`, `language_code`, `relevance`, `search_strings` ( 200 )), ";
 		$sql .= " INDEX (relevance)
@@ -564,24 +564,24 @@ function clean_out_dictionary_data () {
 
 function remove_entries () {
 	global $wpdb;
-	
+
 	$catid = get_category_id();
-	
+
 	if($_POST['delete_allposts'] == 1)
 	{
 		$sql = "DELETE FROM " . $wpdb->prefix . "posts WHERE post_type IN ('post', 'revision')";
 	}
-	else 
+	else
 	{
 		//just posts in category "webonary"
 		$sql = "DELETE FROM " . $wpdb->prefix . "posts " .
-		" WHERE post_type IN ('post', 'revision') AND " . 
+		" WHERE post_type IN ('post', 'revision') AND " .
 		" ID IN (SELECT object_id FROM " . $wpdb->prefix . "term_relationships WHERE " . $wpdb->prefix . "term_relationships.term_taxonomy_id = " . $catid .")";
 	}
 	$wpdb->query( $sql );
-	
+
 	$sql = "DELETE FROM " . $wpdb->prefix . "term_relationships WHERE term_taxonomy_id = " . $catid;
-	
+
 	$return_value = $wpdb->get_var( $sql );
 }
 
@@ -591,21 +591,13 @@ function set_options () {
 	global $wpdb;
 	global $blog_id;
 
-	$sql = "UPDATE " . $wpdb->prefix . "options " . 
+	$sql = "UPDATE " . $wpdb->prefix . "options " .
 		 " SET option_value = 0 " .
 		 " WHERE option_name = 'uploads_use_yearmonth_folders'";
-	
+
 	require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
 	dbDelta( $sql );
-	
-	if ( is_multisite() )
-	{
-		$sql = "UPDATE " . $wpdb->prefix . "options " .
-				" SET option_value = 'wp-content/blogs.dir/" . $blog_id . "/files' " .
-				" WHERE option_name = 'upload_path'";
-				
-		dbDelta( $sql );
-	}	
+
 }
 
 function set_field_sortorder() {
@@ -615,7 +607,7 @@ function set_field_sortorder() {
 	if($wpdb->get_row($sql))
 	{
 		return false;
-	}	
+	}
 	$sql = " ALTER TABLE " . $wpdb->prefix . "sil_search ADD sortorder INT NOT NULL DEFAULT  '0'";
 	$wpdb->query( $sql );
 }
@@ -627,7 +619,7 @@ function set_field_sortorder() {
 
 function unregister_custom_taxonomies () {
 	global $wpdb;
-	
+
 	$sql = "UPDATE $wpdb->term_taxonomy SET count = 1 WHERE count = 0";
 	$wpdb->query( $sql);
 
@@ -635,10 +627,10 @@ function unregister_custom_taxonomies () {
 	unregister_custom_taxonomy ( 'sil_parts_of_speech' );
 	unregister_custom_taxonomy ( 'sil_writing_systems' );
 	unregister_custom_taxonomy ( 'sil_webstrings' );
-	
+
 	//delete all relationships
 	$del = "DELETE FROM $wpdb->term_relationships WHERE term_taxonomy_id = 1 ";
-	$wpdb->query( $del);	
+	$wpdb->query( $del);
 }
 
 //-----------------------------------------------------------------------------//
@@ -659,7 +651,7 @@ function unregister_custom_taxonomy ( $taxonomy ) {
 	global $wp_taxonomies;
 	if ( ! $taxonomy->builtin ) {
 		$terms = get_terms( $taxonomy );
-		foreach ( $terms as $term ) {			
+		foreach ( $terms as $term ) {
 			wp_delete_term( $term->term_id, $taxonomy );
 		}
 	unset( $wp_taxonomies[$taxonomy]);
@@ -696,7 +688,7 @@ function uninstall_custom_table ( $table ) {
  * Unistall custom tables, taxonomies, etc. on plugin uninstall
  */
 function uninstall_sil_dictionary_infrastructure () {
-	
+
 	// Remove all the old dictionary entries.
 	//DANGEROUS, this would remove all the posts, if somebody doesn't migrate the posts to pages
 	//remove_entries();
@@ -714,8 +706,8 @@ function upload_stylesheet()
 		$upload_dir = wp_upload_dir();
 		$from_path = $_SERVER['DOCUMENT_ROOT'] . "/wp-content/themes/webonary-zeedisplay/style.css";
 		$target_path = $upload_dir['path'] . "/style.css";
-		
-		if(!file_exists($target_path))	
+
+		if(!file_exists($target_path))
 		{
 			error_reporting(E_ALL);
 			if(copy($from_path, $target_path)) {
@@ -727,7 +719,7 @@ function upload_stylesheet()
 				echo "Target Path: " . $target_path;
 			}
 		}
-	}	
+	}
 }
 */
 ?>
