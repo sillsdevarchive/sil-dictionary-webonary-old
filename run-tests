@@ -1,0 +1,5 @@
+#!/bin/bash
+
+SCRIPT_LOCATION="$(dirname "$0")"
+cd $SCRIPT_LOCATION/include
+phpunit tests
