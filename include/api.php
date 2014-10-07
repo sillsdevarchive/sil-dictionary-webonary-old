@@ -21,24 +21,27 @@ class Webonary_API_MyType {
 		//array (for Collections) or an object (for Entities).
 		if(isset($_SERVER['PHP_AUTH_USER'])){
 
-			$this->unzip($_FILES['filedata']);
+			$arrDirectory = wp_upload_dir();
+			$uploadPath = $arrDirectory['path'];
 
-			/*
+			$this->unzip($_FILES['filedata'], $uploadPath);
+
+			$zipPath = $uploadPath . "/" . str_replace(".zip", "", $_FILES['filedata']['name']);
+			$fileConfigured = $zipPath . "/configured.xhtml";
+			$xhtmlConfigured = file_get_contents($fileConfigured);
+
 			$import = new sil_pathway_xhtml_Import();
-			$import->import_xhtml($data, true);
+			$import->import_xhtml($xhtmlConfigured, true);
 			$import->index_searchstrings();
 
 			//$rettr = add_action( 'init', 'import_xhtml' );
-			*/
+
 		}else{$rettr = "You are not logged in.";}
 		return array('returnedData'=>$rettr);
 	}
 
-	public function unzip($zipfile)
+	public function unzip($zipfile, $uploadPath)
 	{
-		$arrDirectory = wp_upload_dir();
-		$uploadPath = $arrDirectory['path'];
-
 		$overrides = array( 'test_form' => false, 'test_type' => false );
 		$file = wp_handle_upload($zipfile, $overrides);
 
