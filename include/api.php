@@ -48,7 +48,7 @@ class Webonary_API_MyType {
 			{
 				$import->import_xhtml($xhtmlConfigured, true);
 			}
-			$import->index_searchstrings();
+			$import->index_searchstrings(true);
 
 		}else{$rettr = "authentication failed";}
 		return array('returnedData'=>$rettr);
