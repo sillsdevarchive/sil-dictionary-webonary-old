@@ -28,6 +28,9 @@ class Webonary_API_MyType {
 
 			$unzipped = $this->unzip($_FILES['file'], $uploadPath);
 
+			//program can be closed now, the import will run in the background
+			flush();
+
 			if($unzipped)
 			{
 				$zipPath = $uploadPath . "/" . str_replace(".zip", "", $_FILES['file']['name']);
@@ -36,28 +39,52 @@ class Webonary_API_MyType {
 
 				//moving style sheet file
 				copy($zipPath . "/configured.css", $uploadPath . "/imported-with-xhtml.css");
-				echo "Moved configured.css to " . $uploadPath . "/imported-with-xhtml.css\n";
+				error_log("Moved configured.css to " . $uploadPath . "/imported-with-xhtml.css");
 			}
 
 			//moving style sheet file
 			copy($zipPath . "/imported-with-xhtml.css", $uploadPath . "/imported-with-xhtml.css");
-			echo "Moved imported-with-xhtml.css to " . $uploadPath . "\n";
+			error_log("Moved imported-with-xhtml.css to " . $uploadPath);
 
 			$import = new sil_pathway_xhtml_Import();
 			if(isset($xhtmlConfigured))
 			{
-				$import->import_xhtml($xhtmlConfigured, true);
-			}
-			$import->index_searchstrings(true);
+				//If $verbose is true, it will display progress, but can't run import in the background
+				$verbose = false;
+				$import->import_xhtml($xhtmlConfigured, true, $verbose);
 
-		}else{$rettr = "authentication failed";}
-		return array('returnedData'=>$rettr);
+				if($verbose)
+				{
+					echo "Indexing search strings\n";
+				}
+				$import->index_searchstrings($verbose);
+			}
+
+			return "import completed";
+		}
+		else
+		{
+			echo "authentication failed\n";
+			flush();
+		}
+
+		return;
 	}
 
 	public function unzip($zipfile, $uploadPath)
 	{
 		$overrides = array( 'test_form' => false, 'test_type' => false );
 		$file = wp_handle_upload($zipfile, $overrides);
+
+		if (isset( $file['error']))
+		{
+			echo "Upload failed: " . $file['error'] . "\n";
+			return false;
+		}
+		else
+		{
+			echo "Upload successful\n";
+		}
 
 		$zip = new ZipArchive;
 		$res = $zip->open($uploadPath . "/" . $zipfile['name']);

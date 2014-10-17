@@ -42,7 +42,8 @@ if ( ! class_exists( 'WP_Importer' ) )
  */
 class sil_pathway_xhtml_Import extends WP_Importer {
 
-	public $api;
+	public $api; //if data is sent from an external program
+	public $verbose;
 
 	/*
 	 * Table and taxonomy attributes
@@ -85,6 +86,12 @@ class sil_pathway_xhtml_Import extends WP_Importer {
 
 		$this->header();
 
+		$this->verbose = false;
+		if(isset($_POST['chkShowProgress']))
+		{
+			$this->verbose = true;
+		}
+
 		switch ($step) {
 			/*
 			 * First, greet the user and prompt for files.
@@ -112,10 +119,10 @@ class sil_pathway_xhtml_Import extends WP_Importer {
 					echo $result->get_error_message();
 				$css_file = $result['file'];
 				?>
-				<DIV ID="flushme">no data</DIV>
+				<DIV ID="flushme">importing...</DIV>
 				<?php
 
-				$result = $this->import_xhtml($xhtml_file);
+				$result = $this->import_xhtml($xhtml_file, false, $this->verbose);
 
 				$this->goodbye($xhtml_file, $css_file);
 				break;
@@ -123,6 +130,7 @@ class sil_pathway_xhtml_Import extends WP_Importer {
 			 * for indexing the search strings (configured dictionary)
 			 */
 			case 2 :
+				echo "verbose: " . $this->verbose . "<br>";
 				?>
 				<DIV ID="flushme">indexing...</DIV>
 				<?php
@@ -174,8 +182,12 @@ class sil_pathway_xhtml_Import extends WP_Importer {
 		echo '<div class="narrow">';
 		echo '<p>' . __( 'Howdy! This importer allows you to import SIL FLEX XHTML data into your WordPress site.',
 				'sil_dictionary' ) . '</p>';
-		echo '<p style="color:red">' . __( 'Please note that the entries will be imported into "Posts". Webonary does not play well together with existing blogs. Articles should be posted under "Pages".',
-				'sil_dictionary' ) . '</p>';
+		?>
+		<p style="max-width: 500px; border-style:solid; border-width: 1px; border-color: red; padding: 5px;">
+		<strong>Import Status:</strong> Currently indexing search strings: 455 of 2010 entries.<br>You will receive an email when the import has completed.<br>
+		If you believe the import has timed out, click here: <input type="button" name="btnIndexSearchStrings" value="Index Search Strings">
+		</p>
+		<?php
 	}
 
 	//-----------------------------------------------------------------------------//
@@ -198,33 +210,43 @@ class sil_pathway_xhtml_Import extends WP_Importer {
 
 		echo '<div class="narrow">';
 
-		if ( $_POST['filetype'] == 'configured') {
-			if($_GET['step'] == 1)
+		if ( $_POST['filetype'] == 'configured')
+		{
+			if($this->verbose)
 			{
-				echo '<strong>Next step: </strong>';
-				echo '<p>';
-					echo '<form enctype="multipart/form-data" id="import-upload-form" method="post" action="' . esc_attr(wp_nonce_url("admin.php?import=pathway-xhtml&amp;step=2", 'import-upload')) . '">';
-						echo '<input type="submit" class="button" name="btnIndex" value="Index Search Strings"/>';
-						if(isset($_POST['chkConvertToLinks']))
-						{
-							echo '<input type="hidden" name="chkConvertToLinks" value=' . $_POST['chkConvertToLinks'] .'></input>';
-							echo '<input type="hidden" name="filetype" value="configured"></input>';
-						}
-					echo '</form>';
-				echo '</p>';
+				if($_GET['step'] == 1)
+				{
+					echo '<strong>Next step: </strong>';
+					echo '<p>';
+						echo '<form enctype="multipart/form-data" id="import-upload-form" method="post" action="' . esc_attr(wp_nonce_url("admin.php?import=pathway-xhtml&amp;step=2", 'import-upload')) . '">';
+							echo '<input type="submit" class="button" name="btnIndex" value="Index Search Strings"/>';
+							if(isset($_POST['chkConvertToLinks']))
+							{
+								echo '<input type="hidden" name="chkShowProgress" value=' . $_POST['chkShowProgress'] . '></input>';
+								echo '<input type="hidden" name="chkConvertToLinks" value=' . $_POST['chkConvertToLinks'] .'></input>';
+								echo '<input type="hidden" name="filetype" value="configured"></input>';
+							}
+						echo '</form>';
+					echo '</p>';
+				}
+				if($_GET['step'] == 2 && $_POST['chkConvertToLinks'] > 0)
+				{
+					echo '<strong>Next step: </strong>';
+					echo '<p>';
+						echo '<form enctype="multipart/form-data" id="import-upload-form" method="post" action="' . esc_attr(wp_nonce_url("admin.php?import=pathway-xhtml&amp;step=3", 'import-upload')) . '">';
+							echo '<input type="hidden" name="chkShowProgress" value=' . $_POST['chkShowProgress'] . '></input>';
+							echo '<input type="submit" class="button" name="btnIndex" value="Convert Links"/>';
+							if(isset($_POST['chkConvertToLinks']))
+							{
+								echo '<input type="hidden" name="chkConvertToLinks" value=' . $_POST['chkConvertToLinks'] . '></input>';
+							}
+						echo '</form>';
+					echo '</p>';
+				}
 			}
-			if($_GET['step'] == 2 && $_POST['chkConvertToLinks'] > 0)
+			else
 			{
-				echo '<strong>Next step: </strong>';
-				echo '<p>';
-					echo '<form enctype="multipart/form-data" id="import-upload-form" method="post" action="' . esc_attr(wp_nonce_url("admin.php?import=pathway-xhtml&amp;step=3", 'import-upload')) . '">';
-						echo '<input type="submit" class="button" name="btnIndex" value="Convert Links"/>';
-						if(isset($_POST['chkConvertToLinks']))
-						{
-							echo '<input type="hidden" name="chkConvertToLinks" value=' . $_POST['chkConvertToLinks'] . '></input>';
-						}
-					echo '</form>';
-				echo '</p>';
+				$this->index_searchstrings();
 			}
 		}
 		else
@@ -328,12 +350,13 @@ class sil_pathway_xhtml_Import extends WP_Importer {
 					<option value="2"><?php echo esc_attr_e('Convert all items into search links.'); ?></option>
 				</select>
 				<?php esc_attr_e('(semantic domains always convert to links).'); ?>
-				<br>
 				<?php /*
 				<input type="checkbox" name="chkShowDebug"> <?php esc_attr_e('Display debug messages'); ?></input>
 				*/ ?>
 			</div>
-			<p class="submit">
+			<p>
+			<input type="checkbox" name="chkShowProgress"> <?php echo esc_attr_e('Check to show import progress in browser (slower). Keep unchecked to run import in the background.'); ?>
+			<p>
 				<input type="submit" class="button" value="<?php esc_attr_e( 'Upload files and import' ); ?>" />
 			</p>
 			</form>
@@ -453,10 +476,9 @@ class sil_pathway_xhtml_Import extends WP_Importer {
 
 	//-----------------------------------------------------------------------------//
 
-	function index_searchstrings($api = false)
+	function index_searchstrings()
 	{
 		global $wpdb;
-		$this->api = $api;
 
 		$search_table_exists = $wpdb->get_var( "show tables like '$this->search_table_name'" ) == $this->search_table_name;
 		$pos_taxonomy_exists = taxonomy_exists( $this->pos_taxonomy );
@@ -509,7 +531,7 @@ class sil_pathway_xhtml_Import extends WP_Importer {
 				$xpath = new DOMXPath($doc);
 				$xpath->registerNamespace('xhtml', 'http://www.w3.org/1999/xhtml');
 
-				if($this->api)
+				if(!$this->verbose || $this->api)
 				{
 					$step = 2;
 				}
@@ -585,10 +607,11 @@ class sil_pathway_xhtml_Import extends WP_Importer {
 	 *
 	 * @return <type>
 	 */
-	function import_xhtml( $xhtml_file, $api = false ) {
+	function import_xhtml( $xhtml_file, $api = false, $verbose = false ) {
 		global $wpdb;
 
 		$this->api = $api;
+		$this->verbose = $verbose;
 
 		// Some of these variables could eventually become user options.
 		$this->dom = new DOMDocument('1.0', 'utf-8');
@@ -630,6 +653,11 @@ class sil_pathway_xhtml_Import extends WP_Importer {
 				{
 					echo "No entries found for the query " . $fieldQuery . "<br>";
 				}
+			}
+			if($this->api == false && $this->verbose == false)
+			{
+				echo "You can now close the browser window.<br>";
+				flush();
 			}
 			$this->import_xhtml_entries();
 		}
@@ -1142,38 +1170,41 @@ class sil_pathway_xhtml_Import extends WP_Importer {
 	 */
 	function import_xhtml_show_progress( $entry_counter, $entries_count, $headword_text, $msg = "" ) {
 
-		//only display every 25 entries or if last entry
-		if($entry_counter % 25 == 0 || $entry_counter == $entries_count)
+		if($this->verbose)
 		{
 			flush();
-			if($this->api)
+			//only display every 25 entries or if last entry
+			if($entry_counter % 25 == 0 || $entry_counter == $entries_count)
 			{
-				if($entry_counter == 1)
+				if($this->api)
 				{
-					echo $msg . "\n";
+					if($entry_counter == 1)
+					{
+						echo $msg . "\n";
+					}
+					echo $entry_counter . " of " . $entries_count . " entries: " . $headword_text . "\n";
 				}
-				echo $entry_counter . " of " . $entries_count . " entries: " . $headword_text . "\n";
-			}
-			else
-			{
-			?>
-				<SCRIPT type="text/javascript">//<![CDATA[
-				d = document.getElementById("flushme");
-				info = "<strong><?php echo $msg; ?></strong><br>";
-				<?php
-				if($entries_count >= 1)
+				else
 				{
 				?>
-					info += "<?php echo $entry_counter; ?> of <?php echo $entries_count; ?> entries: <?php  echo $headword_text; ?>";
-				<?php
-				}
-				?>
-				//info += "<br>";
-				//info += "Memory Usage: <?php echo memory_get_usage() . " bytes"; ?>";
+					<SCRIPT type="text/javascript">//<![CDATA[
+					d = document.getElementById("flushme");
+					info = "<strong><?php echo $msg; ?></strong><br>";
+					<?php
+					if($entries_count >= 1)
+					{
+					?>
+						info += "<?php echo $entry_counter; ?> of <?php echo $entries_count; ?> entries: <?php  echo $headword_text; ?>";
+					<?php
+					}
+					?>
+					//info += "<br>";
+					//info += "Memory Usage: <?php echo memory_get_usage() . " bytes"; ?>";
 
-				d.innerHTML = info;
-				//]]></SCRIPT>
-			<?php
+					d.innerHTML = info;
+					//]]></SCRIPT>
+				<?php
+				}
 			}
 		}
 	}
