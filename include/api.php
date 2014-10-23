@@ -38,17 +38,32 @@ class Webonary_API_MyType {
 				$xhtmlConfigured = file_get_contents($fileConfigured);
 
 				//moving style sheet file
-				copy($zipPath . "/configured.css", $uploadPath . "/imported-with-xhtml.css");
-				error_log("Moved configured.css to " . $uploadPath . "/imported-with-xhtml.css");
+				if(file_exists($zipPath . "/configured.css"))
+				{
+					copy($zipPath . "/configured.css", $uploadPath . "/imported-with-xhtml.css");
+					error_log("Renamed configured.css to " . $uploadPath . "/imported-with-xhtml.css");
+				}
+				//copy folder files (which includes audio and image folders and files)
+				if(file_exists($zipPath . "/files"))
+				{
+					//first delete any existing files
+					$this->rrmdir($uploadPath . "/files/images/thumbnail");
+					$this->rrmdir($uploadPath . "/files/images/original");
+					$this->rrmdir($uploadPath . "/files/audio");
+					//then copy everything under files
+					$this->rcopy($zipPath . "/files", $uploadPath . "/files");
+				}
 			}
 
-			//moving style sheet file
-			copy($zipPath . "/imported-with-xhtml.css", $uploadPath . "/imported-with-xhtml.css");
-			error_log("Moved imported-with-xhtml.css to " . $uploadPath);
-
-			$import = new sil_pathway_xhtml_Import();
 			if(isset($xhtmlConfigured))
 			{
+				//we first delete all existing posts (in category Webonary)
+				remove_entries();
+				//deletes data that comes with the posts, but gets stored separately (e.g. "parts of speech")
+				clean_out_dictionary_data();
+
+				$import = new sil_pathway_xhtml_Import();
+
 				//If $verbose is true, it will display progress, but can't run import in the background
 				$verbose = false;
 				$import->import_xhtml($xhtmlConfigured, true, $verbose);
@@ -60,6 +75,11 @@ class Webonary_API_MyType {
 				$import->index_searchstrings($verbose);
 			}
 
+			if(file_exists($zipPath))
+			{
+				//deletes the extraced zip folder
+				$this->rrmdir($zipPath);
+			}
 			return "import completed";
 		}
 		else
@@ -107,6 +127,30 @@ class Webonary_API_MyType {
 		unlink($uploadPath . "/" . $zipfile['name']);
 		return true;
 	}
+
+	// Function to remove folders and files
+    function rrmdir($dir) {
+        if (is_dir($dir)) {
+            $files = scandir($dir);
+            foreach ($files as $file)
+                if ($file != "." && $file != "..") $this->rrmdir("$dir/$file");
+            rmdir($dir);
+        }
+        else if (file_exists($dir)) unlink($dir);
+    }
+
+	// Function to Copy folders and files
+	//Warning: will first delete existing contents!
+    function rcopy($src, $dst) {
+        if (is_dir ( $src )) {
+            mkdir ( $dst );
+            $files = scandir ( $src );
+            foreach ( $files as $file )
+                if ($file != "." && $file != "..")
+                    $this->rcopy ( "$src/$file", "$dst/$file" );
+        } else if (file_exists ( $src ))
+            copy ( $src, $dst );
+    }
 
 	public function verifyAdminPrivileges()
 	{
