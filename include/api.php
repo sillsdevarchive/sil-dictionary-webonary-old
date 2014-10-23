@@ -53,9 +53,9 @@ class Webonary_API_MyType {
 				if(file_exists($zipPath . "/files"))
 				{
 					//first delete any existing files
-					$this->rrmdir($uploadPath . "/files/images/thumbnail");
-					$this->rrmdir($uploadPath . "/files/images/original");
-					$this->rrmdir($uploadPath . "/files/audio");
+					$this->recursiveRemoveDir($uploadPath . "/files/images/thumbnail");
+					$this->recursiveRemoveDir($uploadPath . "/files/images/original");
+					$this->recursiveRemoveDir($uploadPath . "/files/audio");
 					//then copy everything under files
 					$this->rcopy($zipPath . "/files", $uploadPath . "/files");
 				}
@@ -94,8 +94,8 @@ class Webonary_API_MyType {
 
 			if(file_exists($zipPath))
 			{
-				//deletes the extraced zip folder
-				$this->rrmdir($zipPath);
+				//deletes the extracted zip folder
+				$this->recursiveRemoveDir($zipPath);
 			}
 			return "import completed";
 		}
@@ -108,6 +108,7 @@ class Webonary_API_MyType {
 		return;
 	}
 
+	// Receive upload. Unzip it to uploadPath. Remove upload file.
 	public function unzip($zipfile, $uploadPath)
 	{
 		$overrides = array( 'test_form' => false, 'test_type' => false );
@@ -115,49 +116,48 @@ class Webonary_API_MyType {
 
 		if (isset( $file['error']))
 		{
-			echo "Upload failed: " . $file['error'] . "\n";
+			echo "Error: Upload failed: " . $file['error'] . "\n";
+			unlink($uploadPath . "/" . $zipfile['name']);
 			return false;
 		}
-		else
-		{
-			echo "Upload successful\n";
-		}
+
+		echo "Upload successful\n";
 
 		$zip = new ZipArchive;
 		$res = $zip->open($uploadPath . "/" . $zipfile['name']);
-		if ($res === TRUE) {
-		  $unzip_success = $zip->extractTo($uploadPath);
-		  $zip->close();
-		  if($unzip_success)
-		  {
-			echo "zip file extracted successfully\n";
-		  }
-		  else
-		  {
-			echo "couldn't extract zip file to " . $uploadPath;
-		  }
-		} else {
-		  echo $zipfile['name'] . " isn't a valid zip file\n";
-		  return false;
+		if ($res === FALSE)
+		{
+			echo "Error: " . $zipfile['name'] . " isn't a valid zip file\n";
+			unlink($uploadPath . "/" . $zipfile['name']);
+			return false;
 		}
 
+		$unzip_success = $zip->extractTo($uploadPath);
+		$zip->close();
+		if(!$unzip_success)
+		{
+			echo "Error: couldn't extract zip file to " . $uploadPath;
+			unlink($uploadPath . "/" . $zipfile['name']);
+			return false;
+		}
+
+		echo "zip file extracted successfully\n";
 		unlink($uploadPath . "/" . $zipfile['name']);
 		return true;
 	}
 
 	// Function to remove folders and files
-    function rrmdir($dir) {
+    function recursiveRemoveDir($dir) {
         if (is_dir($dir)) {
             $files = scandir($dir);
             foreach ($files as $file)
-                if ($file != "." && $file != "..") $this->rrmdir("$dir/$file");
+                if ($file != "." && $file != "..") $this->recursiveRemoveDir("$dir/$file");
             rmdir($dir);
         }
         else if (file_exists($dir)) unlink($dir);
     }
 
 	// Function to Copy folders and files
-	//Warning: will first delete existing contents!
     function rcopy($src, $dst) {
         if (is_dir ( $src )) {
             mkdir ( $dst );

@@ -1087,6 +1087,8 @@ class sil_pathway_xhtml_Import extends WP_Importer {
 
 			$arrAllQueries = $this->getArrFieldQueries(true);
 
+			//we convert the headwords to links by default if coming from API as there isn't a setting for this in the FLEx export
+			//clicking on a headword will lead to a page with a comment form (if comments are activated)
 			if($_POST['chkConvertToLinks'] == 1 || $this->api == true)
 			{
 				$arrFieldQueries[0] = $arrAllQueries[0];
