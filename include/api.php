@@ -73,6 +73,7 @@ class Webonary_API_MyType {
 					echo "Indexing search strings\n";
 				}
 				$import->index_searchstrings($verbose);
+				$import->convert_fields_to_links();
 			}
 
 			if(file_exists($zipPath))

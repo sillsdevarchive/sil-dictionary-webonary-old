@@ -1082,7 +1082,7 @@ class sil_pathway_xhtml_Import extends WP_Importer {
 
 			$arrAllQueries = $this->getArrFieldQueries(true);
 
-			if($_POST['chkConvertToLinks'] == 1)
+			if($_POST['chkConvertToLinks'] == 1 || $this->api == true)
 			{
 				$arrFieldQueries[0] = $arrAllQueries[0];
 				$arrFieldQueries[1] = $arrAllQueries[1];
