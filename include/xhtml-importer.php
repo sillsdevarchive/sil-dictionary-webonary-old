@@ -232,7 +232,7 @@ class sil_pathway_xhtml_Import extends WP_Importer {
 			else
 			{
 				$this->index_searchstrings();
-				if(isset($_POST['chkConvertToLinks']))
+				if($_POST['chkConvertToLinks'] > 0)
 				{
 					$this->convert_fields_to_links();
 				}
@@ -598,13 +598,18 @@ class sil_pathway_xhtml_Import extends WP_Importer {
 	 *
 	 * @return <type>
 	 */
-	function import_xhtml( $xhtml_file, $api = false, $verbose = false ) {
+	function import_xhtml( $xhtml_file, $api = false, $verbose = false, $filetype = "" ) {
 		global $wpdb;
-
-		update_option("importStatus", "importing");
 
 		$this->api = $api;
 		$this->verbose = $verbose;
+
+		if(isset($_POST['filetype']))
+		{
+			$filetype = $_POST['filetype'];
+		}
+
+		update_option("importStatus", $filetype);
 
 		if($xhtml_file == null)
 		{
@@ -638,7 +643,7 @@ class sil_pathway_xhtml_Import extends WP_Importer {
 		/*
 		 * Import
 		 */
-		if ( $_POST['filetype'] == 'configured' || $api == true) {
+		if ( $filetype== 'configured') {
 			//  Make sure we're not working on a reversal file.
 			$reversals = $this->dom_xpath->query( '(//xhtml:span[contains(@class, "reversal-form")])[1]' );
 			if ( $reversals->length > 0 )
@@ -660,9 +665,9 @@ class sil_pathway_xhtml_Import extends WP_Importer {
 			}
 			$this->import_xhtml_entries();
 		}
-		elseif ( $_POST['filetype'] == 'reversal')
+		elseif ( $filetype == 'reversal')
 			$this->import_xhtml_reversal_indexes();
-		elseif ( $_POST['filetype'] == 'stem')
+		elseif ( $filetype == 'stem')
 			$this->import_xhtml_stem_indexes();
 		return;
 	} // function import_xhtml($xhtml_file)
@@ -1420,7 +1425,8 @@ class sil_pathway_xhtml_Import extends WP_Importer {
 			{
 				if($countIndexed == get_option("totalConfiguredEntries"))
 				{
-					$importFinished = true;
+					//it might not be finished if user wants to convert links
+					//$importFinished = true;
 				}
 			}
 
@@ -1434,7 +1440,7 @@ class sil_pathway_xhtml_Import extends WP_Importer {
 			}
 			else
 			{
-				$status = "Importing...";
+				$status = "Importing... ";
 				//$status .= " You will receive an email when the import has completed.";
 				$status .= "<br>";
 
@@ -1446,11 +1452,12 @@ class sil_pathway_xhtml_Import extends WP_Importer {
 				{
 					$status .= "Converting Links " . $countLinksConverted . " of " . get_option("totalConfiguredEntries") . " entries<br>";
 				}
-				else
+				elseif(get_option("importStatus") == "configured")
 				{
-					$status .= $countImported . " of " . get_option("totalConfiguredEntries") . " entries imported (not yet indexed)<br>";
+					$status .= $countImported . " of " . get_option("totalConfiguredEntries") . " entries imported<br>";
 				}
 			}
+
 
 			return $status;
 		}
@@ -1729,6 +1736,20 @@ class sil_pathway_xhtml_Import extends WP_Importer {
 			$reversals = $this->dom_xpath->query( './xhtml:span[contains(@class, "reversal-form")]', $entry );
 			$reversal_language = $reversals->item(0)->getAttribute( "lang" );
 			$reversal_text = $reversals->item(0)->textContent;
+
+			if($entry_counter == 1)
+			{
+				//automatically sets the language code for the reversal on import.
+				//if reversal1 already exists, it sets reversal 2
+				if(strlen(get_option('reversal1_langcode')) > 0 && get_option('reversal1_langcode') != $reversal_language)
+				{
+					update_option("reversal2_langcode", $reversal_language);
+				}
+				else
+				{
+					update_option("reversal1_langcode", $reversal_language);
+				}
+			}
 
 			//$headwords = $this->dom_xpath->query('./xhtml:span[@class = "senses"]/xhtml:span[@class = "sense"]/xhtml:span[@class = "headword"]|./xhtml:span[@class = "senses"]/xhtml:span[starts-with(@class, "headref")]', $entry );
 			$headwords = $this->dom_xpath->query('.//xhtml:span[@class = "headword"]|.//xhtml:span[starts-with(@class, "headref")]', $entry );

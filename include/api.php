@@ -37,6 +37,12 @@ class Webonary_API_MyType {
 				$fileConfigured = $zipPath . "/configured.xhtml";
 				$xhtmlConfigured = file_get_contents($fileConfigured);
 
+				$fileReversal1= $zipPath . "/reversal1.xhtml";
+				$xhtmlReversal1 = file_get_contents($fileReversal1);
+
+				$fileReversal2= $zipPath . "/reversal2.xhtml";
+				$xhtmlReversal2 = file_get_contents($fileReversal2);
+
 				//moving style sheet file
 				if(file_exists($zipPath . "/configured.css"))
 				{
@@ -66,7 +72,7 @@ class Webonary_API_MyType {
 
 				//If $verbose is true, it will display progress, but can't run import in the background
 				$verbose = false;
-				$import->import_xhtml($xhtmlConfigured, true, $verbose);
+				$import->import_xhtml($xhtmlConfigured, true, $verbose, "configured");
 
 				if($verbose)
 				{
@@ -74,6 +80,16 @@ class Webonary_API_MyType {
 				}
 				$import->index_searchstrings($verbose);
 				$import->convert_fields_to_links();
+			}
+
+			if(isset($xhtmlReversal1))
+			{
+				$import->import_xhtml($xhtmlReversal1, true, $verbose, "reversal");
+			}
+
+			if(isset($xhtmlReversal2))
+			{
+				$import->import_xhtml($xhtmlReversal2, true, $verbose, "reversal");
 			}
 
 			if(file_exists($zipPath))
