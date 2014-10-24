@@ -17,8 +17,8 @@ class Webonary_API_MyType {
         return $routes;
     }
 
-	public function import($_headers){
-
+	public function import($_headers)
+	{
 		$authenticated = $this->verifyAdminPrivileges();
 
 		if($authenticated){
@@ -26,14 +26,14 @@ class Webonary_API_MyType {
 			$arrDirectory = wp_upload_dir();
 			$uploadPath = $arrDirectory['path'];
 
-			$unzipped = $this->unzip($_FILES['file'], $uploadPath);
+			$zipPath = $uploadPath . "/" . str_replace(".zip", "", $_FILES['file']['name']);
+			$unzipped = $this->unzip($_FILES['file'], $uploadPath, $zipPath);
 
 			//program can be closed now, the import will run in the background
 			flush();
 
 			if($unzipped)
 			{
-				$zipPath = $uploadPath . "/" . str_replace(".zip", "", $_FILES['file']['name']);
 				$fileConfigured = $zipPath . "/configured.xhtml";
 				$xhtmlConfigured = file_get_contents($fileConfigured);
 
@@ -109,7 +109,7 @@ class Webonary_API_MyType {
 	}
 
 	// Receive upload. Unzip it to uploadPath. Remove upload file.
-	public function unzip($zipfile, $uploadPath)
+	public function unzip($zipfile, $uploadPath, $zipPath)
 	{
 		$overrides = array( 'test_form' => false, 'test_type' => false );
 		$file = wp_handle_upload($zipfile, $overrides);
@@ -132,7 +132,7 @@ class Webonary_API_MyType {
 			return false;
 		}
 
-		$unzip_success = $zip->extractTo($uploadPath);
+		$unzip_success = $zip->extractTo($zipPath);
 		$zip->close();
 		if(!$unzip_success)
 		{
