@@ -63,13 +63,17 @@ function get_category_id() {
 	return $catid;
 }
 
-function get_LanguageCodes() {
+function get_LanguageCodes($languageCode = null) {
 	global $wpdb;
 
 	$sql = "SELECT language_code, name
 		FROM " . $wpdb->prefix . "sil_search
-		LEFT JOIN " . $wpdb->terms . " ON " . $wpdb->terms . ".slug = " . $wpdb->prefix . "sil_search.language_code
-		GROUP BY language_code
+		LEFT JOIN " . $wpdb->terms . " ON " . $wpdb->terms . ".slug = " . $wpdb->prefix . "sil_search.language_code";
+		if(isset($languageCode))
+		{
+			$sql .= " WHERE language_code = '" . $languageCode . "' ";
+		}
+		$sql .= " GROUP BY language_code
 		ORDER BY language_code";
 
 	return $wpdb->get_results($sql);;
@@ -103,12 +107,12 @@ function user_input() {
 		var langcode = e.options[e.selectedIndex].value;
 
 		jQuery.ajax({
-			url: '<?php echo admin_url('admin-ajax.php'); ?>',
-			data : {action: "getAjaxlanguage", languagecode : langcode},
-			type:'POST',
-     		dataType: 'html',
+		url: '<?php echo admin_url('admin-ajax.php'); ?>',
+		data : {action: "getAjaxlanguage", languagecode : langcode}
+		type:'POST',
+		dataType: 'html',
      		success: function(output_string){
-        		jQuery('#' + langname).val(output_string);
+			jQuery('#' + langname).val(output_string);
 		}
 	 })
 	}
@@ -537,6 +541,11 @@ function clean_out_dictionary_data () {
 
 	$delete_taxonomies = $_POST['delete_taxonomies'];
 
+	//deletes the xhtml file, if still there because import didn't get completed
+	$import = new sil_pathway_xhtml_Import();
+	$file = $import->get_latest_xhtmlfile();
+	wp_delete_attachment( $file->ID );
+
 	// Remove all the old dictionary entries.
 	remove_entries();
 
@@ -598,6 +607,17 @@ function set_options () {
 	require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
 	dbDelta( $sql );
 
+	/*
+	 * setting the upload_path to blogs.dir will cause problems with newer versions of Wordpress and is unnessary
+	if ( is_multisite() )
+	{
+		$sql = "UPDATE " . $wpdb->prefix . "options " .
+				" SET option_value = 'wp-content/blogs.dir/" . $blog_id . "/files' " .
+				" WHERE option_name = 'upload_path'";
+
+		dbDelta( $sql );
+	}
+	*/
 }
 
 function set_field_sortorder() {

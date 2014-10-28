@@ -92,6 +92,41 @@ class sil_pathway_xhtml_Import extends WP_Importer {
 			$this->verbose = true;
 		}
 
+		if(isset($_POST['btnRestartImport']))
+		{
+			remove_entries();
+			echo "Restarting Import...<br>";
+
+			$file = $this->get_latest_xhtmlfile();
+			$xhtml_file = file_get_contents($file->url);
+
+			$this->import_xhtml($xhtml_file, false, false, "configured");
+			wp_delete_attachment( $file->ID );
+
+			$this->index_searchstrings();
+		}
+
+		if(isset($_POST['btnReindex']))
+		{
+		?>
+			<DIV ID="flushme">Indexing Search Strings... </DIV>
+			<?php
+			$this->verbose = true;
+			$this->index_searchstrings();
+
+			$file = $this->get_latest_xhtmlfile();
+			wp_delete_attachment( $file->ID );
+		}
+
+		if(isset($_POST['btnMakeLinks']))
+		{
+		?>
+			<DIV ID="flushme">Converting headwords to links... </DIV>
+		<?php
+			$this->verbose = true;
+			$this->convert_fields_to_links();
+		}
+
 		switch ($step) {
 			/*
 			 * First, greet the user and prompt for files.
@@ -122,9 +157,15 @@ class sil_pathway_xhtml_Import extends WP_Importer {
 				<DIV ID="flushme">importing...</DIV>
 				<?php
 
+				$file = $this->get_latest_xhtmlfile();
+				$xhtml_file = file_get_contents($file->url);
+
 				$result = $this->import_xhtml($xhtml_file, false, $this->verbose);
 
 				$this->goodbye($xhtml_file, $css_file);
+
+				wp_delete_attachment( $file->ID );
+
 				break;
 			/*
 			 * for indexing the search strings (configured dictionary)
@@ -166,12 +207,7 @@ class sil_pathway_xhtml_Import extends WP_Importer {
 				'sil_dictionary' ) . '</p>';
 		?>
 		<div style="max-width: 600px; border-style:solid; border-width: 1px; border-color: red; padding: 5px;">
-		<strong>Import Status:</strong> <?php echo $this->get_import_status(); ?><br>
-		<?php
-		/*
-		If you believe the import has timed out, click here: <input type="button" name="btnIndexSearchStrings" value="Index Search Strings">
-		*/
-		?>
+		<strong>Import Status:</strong> <?php echo $this->get_import_status(); ?>
 		</div>
 		<?php
 	}
@@ -184,15 +220,6 @@ class sil_pathway_xhtml_Import extends WP_Importer {
 	function goodbye($xhtml_file, $css_file){
 
 		global $wpdb;
-
-		if(isset($xhtml_file))
-		{
-			unlink($xhtml_file);
-
-			$sql = "DELETE FROM " . $wpdb->prefix . "posts WHERE post_type = 'attachment' AND post_title LIKE '%.xhtml'";
-
-			$wpdb->query( $sql );
-		}
 
 		echo '<div class="narrow">';
 
@@ -615,25 +642,14 @@ class sil_pathway_xhtml_Import extends WP_Importer {
 			echo "<div style=color:red>ERROR: XHTML file empty. Try uploading again.</div><br>";
 			return;
 		}
-		else
-		{
-			update_option("importStatus", $filetype);
-		}
+
+		update_option("importStatus", $filetype);
 
 
 		// Some of these variables could eventually become user options.
 		$this->dom = new DOMDocument('1.0', 'utf-8');
-		if($api)
-		{
-			$this->dom->preserveWhiteSpace = false;
-			$this->dom->loadXML($xhtml_file);
-		}
-		else
-		{
-			$xhtml_file = realpath($xhtml_file);
-
-			$ret_val = $this->dom->load($xhtml_file);
-		}
+		$this->dom->preserveWhiteSpace = false;
+		$this->dom->loadXML($xhtml_file);
 
 		$this->dom_xpath = new DOMXPath($this->dom);
 		$this->dom_xpath->registerNamespace('xhtml', 'http://www.w3.org/1999/xhtml');
@@ -1427,22 +1443,31 @@ class sil_pathway_xhtml_Import extends WP_Importer {
 				$importFinished = true;
 			}
 
+			$status = "<form method=\"post\" action=\"" . $_SERVER['REQUEST_URI'] . "\">";
+
 			if($importFinished)
 			{
 				if($posts->post_date != NULL)
 				{
-					$status = "Last import of configured xhtml was at " . $posts->post_date . " (server time)";
+					$status .= "Last import of configured xhtml was at " . $posts->post_date . " (server time)";
+					if($countLinksConverted < get_option("totalConfiguredEntries"))
+					{
+						$status .= "<input type=hidden name=chkConvertToLinks value=1>";
+						$status .= "<br><input type=\"submit\" name=\"btnMakeLinks\" value=\"Turn headwords into links\">";
+					}
 				}
 			}
 			else
 			{
-				$status = "Importing... <a href=\"" . $_SERVER['REQUEST_URI']  . "\">refresh page</a>";
+				$status .= "Importing... <a href=\"" . $_SERVER['REQUEST_URI']  . "\">refresh page</a>";
 				//$status .= " You will receive an email when the import has completed.";
 				$status .= "<br>";
 
 				if(get_option("importStatus") == "indexing")
 				{
 					$status .= "Indexing " . $countIndexed . " of " . get_option("totalConfiguredEntries") . " entries";
+
+					$status .= "<br>If you believe indexing has timed out, click here: <input type=\"submit\" name=\"btnReindex\" value=\"Index Search Strings\"/>";
 				}
 				elseif(get_option("importStatus") == "convertlinks")
 				{
@@ -1451,8 +1476,12 @@ class sil_pathway_xhtml_Import extends WP_Importer {
 				elseif(get_option("importStatus") == "configured")
 				{
 					$status .= $countImported . " of " . get_option("totalConfiguredEntries") . " entries imported";
+
+					$status .= "<br>If you believe the import has timed out, click here: <input type=\"submit\" name=\"btnRestartImport\" value=\"Restart Import\">";
 				}
 			}
+
+			$status .= "</form>";
 
 			$sql = " SELECT language_code, COUNT(language_code) AS totalIndexed " .
 					" FROM " . $this->search_table_name .
@@ -1527,6 +1556,20 @@ class sil_pathway_xhtml_Import extends WP_Importer {
 		{
 			return "No entries have been imported yet.";
 		}
+	}
+
+	function get_latest_xhtmlfile(){
+		global $wpdb;
+
+		$sql = "SELECT ID, post_content AS url
+			FROM $wpdb->posts
+			WHERE post_content LIKE '%.xhtml' AND post_type LIKE 'attachment'
+			ORDER BY post_date DESC
+			LIMIT 0,1";
+
+		$arrLastFile = $wpdb->get_results($sql);
+
+		return $arrLastFile[0];
 	}
 
 	function get_posts($index = ""){
