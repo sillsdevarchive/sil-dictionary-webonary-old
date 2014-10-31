@@ -158,14 +158,18 @@ class sil_pathway_xhtml_Import extends WP_Importer {
 				<?php
 
 				$file = $this->get_latest_xhtmlfile();
-				$xhtml_file = file_get_contents($file->url);
-
+				if(isset($file))
+				{
+					$xhtml_file = file_get_contents($file->url);
+				}
 				$result = $this->import_xhtml($xhtml_file, false, $this->verbose);
 
 				$this->goodbye($xhtml_file, $css_file);
 
-				wp_delete_attachment( $file->ID );
-
+				if(isset($file))
+				{
+					wp_delete_attachment( $file->ID );
+				}
 				break;
 			/*
 			 * for indexing the search strings (configured dictionary)
@@ -259,12 +263,20 @@ class sil_pathway_xhtml_Import extends WP_Importer {
 			}
 			else
 			{
-				$this->index_searchstrings();
-				if($_POST['chkConvertToLinks'] > 0)
+				if(isset($xhtml_file))
 				{
-					$this->convert_fields_to_links();
+					$this->index_searchstrings();
+					if($_POST['chkConvertToLinks'] > 0)
+					{
+						$this->convert_fields_to_links();
+					}
 				}
 			}
+
+			global $current_user;
+			get_currentuserinfo();
+
+			//wp_mail( $current_user->user_email, 'Import complete', 'The message' );
 		}
 		flush();
 		echo __( 'Finished!', 'sil_dictionary' );
@@ -993,9 +1005,8 @@ class sil_pathway_xhtml_Import extends WP_Importer {
 
 			$xpath = new DOMXPath($doc);
 
-			$links = $xpath->query('//a');
+			$links = $xpath->query('//a//span[contains(@class,"crossref")]|//a//*[contains(@class,"HeadWordRef")]');
 
-			//$links = $this->dom_xpath->query('//xhtml:a');
 			$totalLinks = $links->length;
 			if($totalLinks > 0)
 			{
@@ -1003,53 +1014,49 @@ class sil_pathway_xhtml_Import extends WP_Importer {
 					if(strtolower($link->getAttribute("class")) != "audiobutton" && strtolower($link->getAttribute("class")) != "image")
 					{
 						// Get the target hvo link to replace
-						$href = $link->getAttribute( "href" );
+						//$href = $link->getAttribute( "href" );
+						$href = $link->parentNode->getAttribute( "href" );
 						$hvo = substr($href, 4);
 
 						// Now get the cross reference. Should only be one, but written to
 						// handle more if they come along.
-						$cross_refs = $xpath->query( '//span[contains(@class,"crossref")]|.//*[contains(@class,"HeadWordRef")]', $link );
-						//$cross_refs = $this->dom_xpath->query( './/xhtml:span[contains(@class,"crossref")]|.//*[contains(@class,"HeadWordRef")]', $link );
 
-						foreach ( $cross_refs as $cross_ref ) {
+						//$cross_refs = $xpath->query( '//span[contains(@class,"crossref")]|.//*[contains(@class,"HeadWordRef")]', $link );
 
-							$sensenumbers = $xpath->query('//span[@class="xsensenumber"]', $cross_ref);
-							//$sensenumbers = $this->dom_xpath->query('//xhtml:span[@class="xsensenumber"]', $cross_ref);
-							foreach($sensenumbers as $sensenumber)
-							{
-								$sensenumber->parentNode->removeChild($sensenumber);
-							}
+						$sensenumbers = $xpath->query('//span[@class="xsensenumber"]', $cross_ref);
+						//$sensenumbers = $this->dom_xpath->query('//xhtml:span[@class="xsensenumber"]', $cross_ref);
+						foreach($sensenumbers as $sensenumber)
+						{
+							$sensenumber->parentNode->removeChild($sensenumber);
+						}
+						// Get the WordPress post ID for the link.
+						$flexid = str_replace("#", "", $href);
+						$post_id = (string) $this->get_post_id( $flexid );
 
-							// Get the WordPress post ID for the link.
-							$flexid = str_replace("#", "", $href);
-							$post_id = (string) $this->get_post_id( $flexid );
+						// Now replace the link to hvo wherever it appears with a link to
+						// WordPress ID The update command should look like this:
+						// UPDATE `nuosu`.`wp_posts` SET post_content =
+						//	REPLACE(post_content, 'href="#hvo14216"', 'href="index.php?p=61151"');
+						//if ( empty( $post_id ) )
+							//$post_id = 'id-not-found';
+						$sql = "UPDATE $wpdb->posts SET pinged = 'flexlinks', post_content = ";
+						$sql = $sql . "REPLACE(post_content, 'href=";
+						$sql = $sql . '"' . $href . '"';
+						$sql = $sql . "', 'href=";
+						$sql = $sql . '"';
+						if ( empty( $post_id ) )
+						{
+							$sql = $sql . "?s=" . addslashes($link->textContent) . "&amp;partialsearch=1";
+						}
+						else
+						{
+							$sql = $sql . "?p=" . $post_id;
+						}
+						$sql = $sql . '"';
+						$sql = $sql . "') " .
+						" WHERE ID = " . $post->ID;
 
-							// Now replace the link to hvo wherever it appears with a link to
-							// WordPress ID The update command should look like this:
-							// UPDATE `nuosu`.`wp_posts` SET post_content =
-							//	REPLACE(post_content, 'href="#hvo14216"', 'href="index.php?p=61151"');
-							//if ( empty( $post_id ) )
-								//$post_id = 'id-not-found';
-							$sql = "UPDATE $wpdb->posts SET post_content = ";
-							$sql = $sql . "REPLACE(post_content, 'href=";
-							$sql = $sql . '"' . $href . '"';
-							$sql = $sql . "', 'href=";
-							$sql = $sql . '"';
-							if ( empty( $post_id ) )
-							{
-								$sql = $sql . "?s=" . addslashes($link->textContent) . "&amp;partialsearch=1";
-							}
-							else
-							{
-								$sql = $sql . "?p=" . $post_id;
-							}
-							$sql = $sql . '"';
-							$sql = $sql . "') " .
-							" WHERE ID = " . $post->ID;
-
-							$wpdb->query( $sql );
-
-						} // foreach ( $cross_refs as $cross_ref )
+						$wpdb->query( $sql );
 					}
 				} // foreach ( $links as $link )
 			}
@@ -1059,29 +1066,6 @@ class sil_pathway_xhtml_Import extends WP_Importer {
 		} //foreach $arrPosts as $post
 	} // function convert_fieldworks_links_to_wordpress()
 
-	/*
-	function convertLinks()
-	{
-		$arrPosts = $this->get_posts("indexed");
-
-		$entry_counter = 1;
-		$entries_count = count($arrPosts);
-
-		foreach($arrPosts as $post)
-		{
-			$doc = new DomDocument();
-			$doc->preserveWhiteSpace = false;
-			$doc->loadXML($post->post_content);
-			$xpath = new DOMXPath($doc);
-
-			$this->import_xhtml_show_progress( $entry_counter, $entries_count, $post->post_title, "Converting Links");
-
-			$this->convert_fields_to_links($post->ID, $doc, $xpath);
-
-			$entry_counter++;
-		}
-	}
-	*/
 	function convert_fields_to_links() {
 
 		global $wpdb;
@@ -1418,6 +1402,7 @@ class sil_pathway_xhtml_Import extends WP_Importer {
 		if(count($arrPosts) > 0)
 		{
 			$countIndexed = 0;
+			$totalImportedPosts = count($this->get_posts());
 
 			foreach($arrPosts as $posts)
 			{
@@ -1438,19 +1423,18 @@ class sil_pathway_xhtml_Import extends WP_Importer {
 			}
 
 			$importFinished = false;
-			if($countIndexed == get_option("totalConfiguredEntries") || $countLinksConverted == get_option("totalConfiguredEntries"))
+			if($countIndexed == $totalImportedPosts || $countLinksConverted == $totalImportedPosts)
 			{
 				$importFinished = true;
 			}
 
 			$status = "<form method=\"post\" action=\"" . $_SERVER['REQUEST_URI'] . "\">";
-
 			if($importFinished)
 			{
 				if($posts->post_date != NULL)
 				{
 					$status .= "Last import of configured xhtml was at " . $posts->post_date . " (server time)";
-					if($countLinksConverted < get_option("totalConfiguredEntries"))
+					if($countLinksConverted < $totalImportedPosts)
 					{
 						$status .= "<input type=hidden name=chkConvertToLinks value=1>";
 						$status .= "<br><input type=\"submit\" name=\"btnMakeLinks\" value=\"Turn headwords into links\">";
@@ -1490,7 +1474,7 @@ class sil_pathway_xhtml_Import extends WP_Importer {
 
 			$arrIndexed = $wpdb->get_results($sql);
 
-			if(count($arrIndexed) > 0 && ($countIndexed == get_option("totalConfiguredEntries") || $countLinksConverted == get_option("totalConfiguredEntries")))
+			if(count($arrIndexed) > 0 && ($countIndexed == $totalImportedPosts || $countLinksConverted == $totalImportedPosts))
 			{
 				$status .= "<br>";
 				$status .= "<div style=\"float: left;\">";
@@ -1523,6 +1507,7 @@ class sil_pathway_xhtml_Import extends WP_Importer {
 
 		if(count($arrPosts) > 0 || count($arrIndexed) > 0)
 		{
+			/*
 			if(count($arrIndexed) == get_option("totalConfiguredEntries"))
 			{
 				$status = "Number of entries: " . count($arrIndexed) . "<br>";
@@ -1531,10 +1516,11 @@ class sil_pathway_xhtml_Import extends WP_Importer {
 					$status .= "Last import was at " . $arrIndexed[0]->post_date . " (server time)";
 				}
 			}
+
 			else
 			{
 				$status = "Importing... You will receive an email when the import has completed.<br>";
-
+			*/
 				if($arrPosts[0]->pinged != "indexed")
 				{
 					$entries = count($arrPosts);
@@ -1549,7 +1535,7 @@ class sil_pathway_xhtml_Import extends WP_Importer {
 				{
 					$status .= "Indexing " . count($arrIndexed) . " of " . get_option("totalConfiguredEntries") . " entries<br>";
 				}
-			}
+			//}
 			return $status;
 		}
 		else
@@ -1569,7 +1555,14 @@ class sil_pathway_xhtml_Import extends WP_Importer {
 
 		$arrLastFile = $wpdb->get_results($sql);
 
-		return $arrLastFile[0];
+		if(count($arrLastFile) > 0)
+		{
+			return $arrLastFile[0];
+		}
+		else
+		{
+			return null;
+		}
 	}
 
 	function get_posts($index = ""){
@@ -1582,8 +1575,11 @@ class sil_pathway_xhtml_Import extends WP_Importer {
 			INNER JOIN " . $wpdb->prefix . "term_relationships ON object_id = ID
 			WHERE " . $wpdb->prefix . "term_relationships.term_taxonomy_id = " . $this->get_category_id();
 		//using pinged field for not yet indexed
-		$sql .= " AND post_status = 'publish' AND pinged = '" . $index . "'";
-
+		$sql .= " AND post_status = 'publish'";
+		if(strlen($index) > 0)
+		{
+		 $sql .= " AND pinged = '" . $index . "'";
+		}
 		return $wpdb->get_results($sql);
 	}
 
