@@ -29,6 +29,10 @@ class Webonary_API_MyType {
 			$destinationPath = $uploadPath . "/" . str_replace(".zip", "", $_FILES['file']['name']);
 			$unzipped = $this->unzip($_FILES['file'], $uploadPath, $destinationPath);
 
+			$statusUrl = get_site_url() . "/wp-admin/admin.php?import=pathway-xhtml";
+			echo "You can view the import status by visiting $statusUrl\n";
+			echo "You will receive an email when the import has completed.\n";
+
 			//program can be closed now, the import will run in the background
 			flush();
 
